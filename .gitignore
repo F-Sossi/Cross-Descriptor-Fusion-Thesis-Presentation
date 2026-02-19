@@ -1,0 +1,28 @@
+# LaTeX build artifacts
+*.aux
+*.bbl
+*.bcf
+*.blg
+*-blx.bib
+*.fdb_latexmk
+*.fls
+*.log
+*.nav
+*.out
+*.run.xml
+*.snm
+*.synctex.gz
+*.toc
+*.vrb
+
+# pdfpc backup
+*.pdfpc~
+
+# Test files
+test_slides*
+
+# Reference documents (not needed in repo)
+stem-ms-css-defense-presentation-guidelines.pdf
+stem-ms-css-defense-presentation-rubric.pdf
+_UW 16x9 Template.pdf
+_UW 16x9 Template.png

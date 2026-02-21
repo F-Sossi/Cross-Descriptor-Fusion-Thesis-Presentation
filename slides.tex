@@ -23,6 +23,7 @@
 \usepackage{amsmath}
 \usepackage{xcolor}
 \usepackage{tikz}
+\usepackage{pifont}  % For \ding symbols (checkmarks, X marks)
 \usepackage{pdfpc}
 \usepackage[backend=bibtex, style=numeric-comp, maxnames=2]{biblatex}
 \bibliography{../UWThesis/uwthesis}
@@ -201,14 +202,14 @@
 \begin{frame}{Key Concepts}
   \centering
   \begin{tikzpicture}[
-      box/.style={draw, rounded corners, minimum height=1cm, minimum width=2.8cm,
+      box/.style={draw, rounded corners, minimum height=1cm, minimum width=2.4cm,
                   font=\small, fill=uwpurple!10},
       arr/.style={->, thick, >=stealth}
     ]
     \node[box] (det) at (0,0)   {Detection};
-    \node[box] (desc) at (4.5,0)  {Description};
-    \node[box] (match) at (9,0) {Matching};
-    \node[box] (eval) at (13,0) {Evaluation};
+    \node[box] (desc) at (3.5,0)  {Description};
+    \node[box] (match) at (7,0) {Matching};
+    \node[box] (eval) at (10.5,0) {Evaluation};
     \draw[arr] (det) -- (desc);
     \draw[arr] (desc) -- (match);
     \draw[arr] (match) -- (eval);
@@ -400,22 +401,22 @@
   \pdfpcnote{SIFT: tiny keypoints, average **4.45 pixels**. KeyNet: much larger, average **49.83 pixels**. Key insight: bigger keypoint = bigger patch = more information. 4px samples 16x16, 10px samples 40x40---huge difference.}
 \end{frame}
 
-\begin{frame}{Surprise \#1: Same-Family Fusion Does Not Help}
+\begin{frame}{Same-Family Fusion Does Not Help}
   \begin{columns}[T]
     \column{0.55\textwidth}
-    \textbf{Expected:} SIFT + RGBSIFT fusion should add color information to grayscale SIFT.
+    \textbf{Hypothesis:} SIFT + RGBSIFT fusion should add color information to grayscale SIFT.
     \vspace{0.5em}
 
-    \textbf{Actual result:}
+    \textbf{Result (patch benchmark):}
     \begin{table}[h]
     \centering\small
     \begin{tabular}{lr}
       \toprule
       \textbf{Configuration} & \textbf{mAP} \\
       \midrule
-      DSP-RGBSIFT alone & 66.0\% \\
-      DSP-SIFT + DSP-RGBSIFT concat & 65.8\% \\
-      DSP-SIFT + DSP-RGBSIFT avg & 65.4\% \\
+      RGBSIFT alone & 24.6\% \\
+      SIFT alone & 22.9\% \\
+      SIFT + RGBSIFT concat & {\color{degrade}10.4\%} \\
       \bottomrule
     \end{tabular}
     \end{table}
@@ -424,36 +425,31 @@
     \begin{alertblock}{Why it failed}
       SIFT-family descriptors capture \textbf{correlated} gradient histogram information ---
       even when one uses color channels.
-      Fusion adds dimensionality without adding new signal.
+      Fusion doubles dimensionality, adding noise rather than signal.
     \end{alertblock}
   \end{columns}
-  \pdfpcnote{We expected SIFT + RGBSIFT to add color info. ACTUALLY: fusion was **WORSE** than the best individual. Why? They capture correlated gradient information. Even color channels don't add enough new signal. First lesson: not all fusion helps.}
+  \pdfpcnote{Patch benchmark isolates descriptor effects. SIFT alone: 22.9\%, RGBSIFT alone: 24.6\%. Fusion: 10.4\%---worse than either alone. Why? Correlated gradient info. Doubling dimensions adds noise, not signal.}
 \end{frame}
 
-\begin{frame}{Surprise \#2: Cross-Family Fusion Breaks Completely}
-  \begin{columns}
+\begin{frame}{Cross-Family Fusion Requires Magnitude Matching}
+  \begin{columns}[T]
     \column{0.5\textwidth}
-    \textbf{Expected:} SIFT + HardNet should combine traditional and learned strengths.
+    \textbf{Problem:} SIFT + HardNet fusion performs \textbf{worse} than either descriptor alone.
     \vspace{0.5em}
 
-    \textbf{Actual result:}
-    Fusion performed \textbf{worse} than either individual descriptor.
-    \vspace{0.5em}
-
-    \textbf{Root cause discovered:}
-    \begin{itemize}
+    \textbf{Root cause:}
+    \begin{itemize}\setlength{\itemsep}{2pt}
       \item SIFT values: 0--512
       \item HardNet values: $-0.3$ to $+0.3$
-      \item In L2 distance, SIFT completely \textbf{dominates}
+      \item In L2 distance, SIFT \textbf{dominates}
     \end{itemize}
 
     \column{0.5\textwidth}
     \begin{table}[h]
     \centering\small
-    \caption*{Descriptor magnitude ranges}
     \begin{tabular}{lcc}
       \toprule
-      & \textbf{Raw Range} & \textbf{After L2} \\
+      & \textbf{Raw} & \textbf{After L2} \\
       \midrule
       SIFT & [0, 512] & [0, 0.3] \\
       HardNet & [$-$0.3, 0.3] & [$-$0.3, 0.3] \\
@@ -462,10 +458,10 @@
     \end{tabular}
     \end{table}
   \end{columns}
-  \pdfpcnote{Expected SIFT + HardNet to be great. It was **WORSE** than either alone. Root cause: magnitude mismatch. SIFT values go up to 512, HardNet stays around 0.3. In L2 distance, SIFT completely dominates---HardNet is invisible. This was the **key debugging moment** of the thesis.}
+  \pdfpcnote{SIFT + HardNet fusion fails without normalization. Root cause: magnitude mismatch. SIFT values go up to 512, HardNet stays around 0.3. In L2 distance, SIFT completely dominates---HardNet contribution is invisible.}
 \end{frame}
 
-\begin{frame}{Adjustment: Pre-Fusion L2 Normalization}
+\begin{frame}{Solution: Pre-Fusion L2 Normalization}
 
   \textbf{Solution:} L2-normalize each descriptor component \textit{before} fusion:
   \begin{equation*}
@@ -489,10 +485,10 @@
   \pdfpcnote{Solution: L2-normalize each component BEFORE fusion. Show the equation. Without: failed. With: **46.0\% mAP**. This led us to make it a configurable option in the framework. Important engineering lesson: the fix was simple once we found the root cause.}
 \end{frame}
 
-\begin{frame}{Surprise \#3: Keypoint Quality Matters More Than Descriptor Choice}
+\begin{frame}{Keypoint Quality Matters More Than Descriptor Choice}
   \begin{itemize}
-    \item We initially focused on designing better \textbf{descriptors}
-    \item Discovered that \textbf{keypoint selection} has an equal or greater effect
+    \item Descriptor research focuses on better \textbf{encoding algorithms}
+    \item Yet \textbf{keypoint selection} has an equal or greater effect on performance
   \end{itemize}
   \vfill
   \begin{table}[h]
@@ -509,7 +505,7 @@
   \end{table}
   \vfill
   {\small Keypoint quality improvements are comparable to switching descriptor families entirely~\cite{lowe2004distinctive, mishchuk2017working}.}
-  \pdfpcnote{We started focused on descriptors. Discovered keypoint selection matters **just as much**. Table shows: switching SIFT to HardNet = +20\%, scale filtering SIFT = +18\%, intersection on HardNet = +18\%. These are comparable gains! Keypoint quality is underappreciated.}
+  \pdfpcnote{Descriptor research focuses on encoding algorithms. But keypoint selection matters just as much. Table shows: switching SIFT to HardNet = +20\%, scale filtering SIFT = +18\%, intersection on HardNet = +18\%. These are comparable gains.}
 \end{frame}
 
 
@@ -575,9 +571,66 @@
     Detector consensus provides quality signal \textbf{beyond} scale alone.
     \vspace{0.5em}
 
-    {\small Answers \textbf{RQ1}: Yes, intersection keypoints are more repeatable~\cite{barroso2019key}.}
+    {\small Answers \textbf{RQ1}: Yes, intersection keypoints are more distinctive keypoints~\cite{barroso2019key}.}
   \end{columns}
   \pdfpcnote{Three stages shown in the figure. Full set: 64.5\% -> Scale-controlled: 78.1\% -> Intersection: **82.1\%**. Each stage adds cumulative improvement. Intersection adds +4\% BEYOND scale control. Answers RQ1: yes, detector consensus is a quality signal.}
+\end{frame}
+
+\begin{frame}{Validating the Intersection Mechanism (1/2)}
+  \textbf{The +18\% mAP gain required verification.} We ruled out four alternatives:
+  \begin{columns}[T]
+    \column{0.5\textwidth}
+    \textbf{\color{degrade}\ding{55} Not better repeatability}\\
+    {\small Intersection: 28.0\% vs Scale: 29.4\%\\($p < 0.0001$). Less repeatable, yet better matches.}
+    \vspace{0.6em}
+
+    \textbf{\color{degrade}\ding{55} Not more distinctive descriptors}\\
+    {\small Correct-match NN ratios identical ($\sim$0.44).\\Descriptors equally good; locations differ.}
+
+    \column{0.5\textwidth}
+    \textbf{\color{degrade}\ding{55} Not higher response values}\\
+    {\small Both sets: avg response $\sim$0.035.\\Keypoint strength is identical.}
+    \vspace{0.6em}
+
+    \textbf{\color{degrade}\ding{55} Not spatial crowding}\\
+    {\small Quadrant distributions identical:\\TL 13\%, TR 18\%, BL 24\%, BR 45\%.\\Filtering is uniform across image.}
+  \end{columns}
+  \pdfpcnote{Sources: (1) Repeatability: analysis/output/descriptor_reports/investigation_2_repeatability_tracking.md. (2) NN ratios: investigation_1_nn_ratio_analysis.md. (3) Response: intersection_mechanism_analysis.md Finding 1. (4) Spatial: analyze_keypoint_properties.py, intersection_mechanism_analysis.md Appendix A.4.}
+\end{frame}
+
+\begin{frame}{Validating the Intersection Mechanism (2/2)}
+  \textbf{Confirmed:} Detector consensus removes ``confusing'' keypoints at repetitive textures.
+  \begin{columns}[T]
+    \column{0.5\textwidth}
+    \textbf{\color{improve}\ding{51} Higher precision}\\
+    {\small At threshold 0.8: 71.2\% vs 66.2\%}
+    \vspace{0.6em}
+
+    \textbf{\color{improve}\ding{51} Fewer false positives}\\
+    {\small 0.40 vs 0.51 FP per TP (22\% reduction)}
+    \vspace{0.6em}
+
+    \textbf{\color{improve}\ding{51} All descriptors benefit equally}\\
+    {\small Proves it's \textbf{location quality}.}
+
+    \column{0.5\textwidth}
+    {\small\textbf{Multi-descriptor gains over baseline:}}
+    \begin{table}[h]
+    \centering\small
+    \begin{tabular}{lr}
+      \toprule
+      DSPSIFT & +28\% \\
+      RGBSIFT & +31\% \\
+      HoNC & +32\% \\
+      HardNet & +17\% \\
+      SOSNet & +17\% \\
+      \bottomrule
+    \end{tabular}
+    \end{table}
+  \end{columns}
+  \vspace{0.3em}
+  {\small \textbf{Mechanism:} Locations where both SIFT and KeyNet detect keypoints have unique local structure.}
+  \pdfpcnote{Sources: Precision/FP: investigation_1_nn_ratio_analysis.md. Multi-descriptor: intersection_mechanism_analysis.md Finding 7. Key insight: if ALL descriptors benefit equally, the locations are better, not the descriptors. Summary: analysis/output/descriptor_reports/intersection_mechanism_analysis.md.}
 \end{frame}
 
 \begin{frame}{Result: CNN + CNN Fusion}

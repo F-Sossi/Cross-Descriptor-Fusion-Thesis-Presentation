@@ -15,7 +15,8 @@
 *.toc
 *.vrb
 
-# pdfpc backup
+# pdfpc files (notes are inline in slides.tex)
+*.pdfpc
 *.pdfpc~
 
 # Test files

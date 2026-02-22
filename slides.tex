@@ -246,9 +246,8 @@
           {\small \textit{Success: quantify the relationship between scale and mAP}}
   \end{enumerate}
   \vfill
-  {\small Evaluated on HPatches benchmark~\cite{balntas2017hpatches}: 116 sequences,
-  59 viewpoint + 57 illumination, ground-truth homographies.}
-  \pdfpcnote{Four research questions, each with a concrete success criterion. RQ1: detector consensus. RQ2: color fusion. RQ3: compatibility patterns. RQ4: scale impact. All evaluated on HPatches: 116 sequences.}
+  {\small Evaluated on a color re-implementation of the HPatches benchmark~\cite{balntas2017hpatches} and a full image pipeline based on the original HPatches source image set.}
+  \pdfpcnote{Four research questions, each with a concrete success criterion. RQ1: detector consensus. RQ2: color fusion. RQ3: compatibility patterns. RQ4: scale impact. }
 \end{frame}
 
 \begin{frame}{Benefits \& Beneficiaries}
@@ -671,15 +670,15 @@
 \end{frame}
 
 \begin{frame}{Result: Patch Benchmark Fusion}
+  \vspace{-0.5em}
   \centering
-  \includegraphics[width=0.72\textwidth]{figures/patch_benchmark_overview.pdf}
-
-  \begin{itemize}
+  \includegraphics[width=0.55\textwidth]{figures/patch_benchmark_overview.pdf}
+  \vspace{-0.5em}
+  \begin{itemize}\setlength{\itemsep}{0pt}\small
     \item \textbf{Best:} HoNC + SOSNet concat = \textbf{50.6\%} mAP (color + learned)
-    \item CNN + CNN concat = 49.9\% (complementary learned representations)
-    \item SIFT + HoNC concat = 15.5\% {\color{degrade} (two weak matchers --- fusion hurts)}
+    \item CNN + CNN concat = 49.9\% (complementary learned)
+    \item SIFT + HoNC concat = 15.5\% {\color{degrade}(two weak matchers --- hurts)}
   \end{itemize}
-  {\small Answers \textbf{RQ2} and \textbf{RQ3}: color adds value when paired with a strong matcher; complementarity is the key to successful fusion.}
   \pdfpcnote{Point to the figure. Best: HoNC + SOSNet = **50.6\%** (discriminator + matcher). CNN + CNN = 49.9\% (complementary learned features). SIFT + HoNC = 15.5\%---WORSE than either alone (two weak matchers). Answers RQ2 and RQ3: color adds value with strong matcher, complementarity is key.}
 \end{frame}
 

@@ -122,12 +122,13 @@
       at ([shift={(1.5cm,-4.2cm)}]current page.north west)
       {Scale Control and Spatial Alignment\\for Local Feature Matching};
     % Author info
-    \node[anchor=south west, text width=0.7\paperwidth, font=\small, text=white!90]
+    \node[anchor=south west, text width=0.9\paperwidth, font=\small, text=white!90]
       at ([shift={(1.5cm,0.6cm)}]current page.south west)
-      {\normalsize Frank Sossi\quad{\color{uwmetallic}$|$}\quad
-       School of STEM, University of Washington Bothell\\[4pt]
+      {\normalsize Frank Sossi\\[3pt]
+       School of STEM, University of Washington Bothell\\[3pt]
        {\itshape Committee: Prof.\ Clark Olson (Chair),
-        Prof.\ Min Chen, Prof.\ Dong Si}\hfill 2026};
+        Prof.\ Min Chen, Prof.\ Dong Si}\\[3pt]
+       2026};
   \end{tikzpicture}
   \pdfpcnote{Welcome everyone. Introduce yourself. Thank the committee: Prof. Olson (chair), Prof. Chen, Prof. Si. "Today I'll present my thesis on cross-detector descriptor fusion for local feature matching."}
 \end{frame}
@@ -139,9 +140,7 @@
   \centering
   \begin{beamercolorbox}[sep=1em, rounded=true, shadow=true, center]{block body}
     \large
-    Selecting high-quality keypoints through detector consensus and scale filtering,
-    then fusing complementary descriptors with proper magnitude matching,
-    yields large improvements in local feature matching performance.
+    Systematic fusion of keypoint detectors and descriptors significantly improves local feature matching.
   \end{beamercolorbox}
   \vfill
   \pdfpcnote{Read the MIOS slowly---this is the entire thesis in one sentence. Pause after reading it. This sets up everything that follows.}
@@ -150,7 +149,7 @@
 % ---- Outline ----
 \begin{frame}{Outline}
   \tableofcontents
-  \pdfpcnote{Four-part structure: Framing, Process, Results, Lessons Learned. About 35--40 minutes, then questions. Briefly mention each section.}
+  \pdfpcnote{Four-part structure, about 35--40 minutes then questions. FRAMING: the problem, state of the art, key concepts (detection/description/matching pipeline, mAP), four research questions, and who benefits. PROCESS: two evaluation pipelines (full-image vs patch benchmark), DescriptorWorkbench architecture, building the color patch benchmark, the spatial intersection algorithm, scale characteristics of detectors, and three key findings---same-family fusion fails, cross-family fusion needs normalization, keypoint quality rivals descriptor choice. RESULTS: baselines, scale control impact (+18\% SIFT, +14\% HardNet), detector intersection progression to 82\%, two slides validating the intersection mechanism, CNN+CNN fusion to 93.4\%, the discriminator-matcher framework, patch benchmark fusion results, and answering all four RQs. LESSONS LEARNED: technical insights, engineering lessons, future work, limitations, and summary of six contributions.}
 \end{frame}
 
 % ###################################################################
@@ -172,11 +171,11 @@
     Can we systematically combine descriptors and improve keypoint selection
     to achieve better matching than any single method alone?
   \end{block}
-  \pdfpcnote{Local features are the backbone of many CV systems. Detection finds WHERE, description encodes WHAT. Different families have different strengths---that's our opportunity. Key question: can we combine them systematically?}
+  \pdfpcnote{Local features are the backbone of many CV systems. Detection finds WHERE, description encodes WHAT. Different families have different strengths that's our opportunity. Key question: can we combine them systematically?}
 \end{frame}
 
 \begin{frame}{State of the Art When This Work Began}
-    \pdfpcnote{Left side: what already existed when I started. Right side: the gaps---no systematic fusion study, no understanding of when it helps/hurts, no color patch benchmark. This is where our work fits.}
+    \pdfpcnote{LEFT SIDE---what existed: SIFT is the classic, 128-D gradient histograms from 2004. SURF is faster with Haar wavelets, 64-D. HardNet and SOSNet are CNN descriptors trained on patch triplets---they learn what makes patches similar. HoNC from Prof. Olson captures color surface normal histograms---unique because it uses color information that all the others discard. RIGHT SIDE---the gaps: nobody had systematically studied what happens when you fuse descriptors across families. No understanding of when fusion helps versus hurts. The role of keypoint quality---scale and detector agreement---was not well studied. And the original HPatches benchmark only provides grayscale patches, so color descriptors like HoNC couldn't be fairly evaluated. These four gaps define our contribution.}
   \begin{columns}[T]
     \column{0.5\textwidth}
     \textbf{What existed:}
@@ -231,7 +230,12 @@
     {\small Mean Average Precision --- our primary metric. Higher = better matching.
     Evaluated per Bojanic et al.~\cite{bojanic2020comparison}}
   \end{columns}
-  \pdfpcnote{Walk through the pipeline diagram left to right. Define keypoint, descriptor, mAP for the audience. Make sure everyone understands these before diving into results. Bojanic et al. metrics are our evaluation standard.}
+  \pdfpcnote{Walk through the pipeline left to right. 
+  DETECTION: find salient locations---corners, blobs---that are likely to reappear if the camera moves or lighting changes. 
+  
+  DESCRIPTION: at each keypoint, sample a patch and encode it as a fixed-length vector. Matching is then just nearest-neighbor search in descriptor space. 
+  
+  mAP explained: for each query descriptor, rank all candidates by distance. Average Precision is the area under the precision-recall curve for that query---it rewards ranking the correct match high. Mean AP averages this over all queries across all image pairs. 50\% mAP means on average the correct match is ranked in the top half; 90\% means it's almost always at the top. We use the Bojanic et al. evaluation protocol which tests across 116 HPatches sequences with ground-truth homographies.}
 \end{frame}
 
 \begin{frame}{Research Goals \& Measures of Success}
@@ -278,6 +282,57 @@
 % ###################################################################
 \section{Process}
 
+\begin{frame}{DescriptorWorkbench Architecture}
+  \begin{columns}[T]
+    \column{0.55\textwidth}
+    \textbf{C++ framework} with:
+    \begin{itemize}
+      \item 10 descriptor types (SIFT, RGBSIFT, HoNC, HardNet, SOSNet, \ldots)
+      \item YAML-driven experiment configuration
+      \item SQLite database for 100+ experiments
+    \end{itemize}
+    \column{0.45\textwidth}
+    \textbf{Tech Stack}
+      \begin{itemize}
+        \item OpenCV 4.13 + LibTorch 2.10
+        \item CUDA 13.1 (RTX 4090)
+        \item Google Test for unit tests
+        \item Python for analysis
+      \end{itemize}
+    \vspace{0.5em}
+    \textbf{Open Source}
+      All code, data, and results are available on GitHub.
+  \end{columns}
+  \pdfpcnote{C++ framework, 10 descriptors, YAML-driven. SQLite database tracks all 100+ experiments. Open source on GitHub.}
+\end{frame}
+
+\begin{frame}{Two Evaluation Protocols}
+  \vspace{-0.5em}
+  \begin{columns}[T]
+    \column{0.5\textwidth}
+    \begin{block}{\small Full-Image (Bojanic et al.~\cite{bojanic2020comparison})}
+      {\small
+      \begin{itemize}\setlength{\itemsep}{0pt}
+        \item \textbf{Matching} --- mAP, SNN ratio test
+        \item \textbf{Verification} --- AUC, cross-seq.\ distractors
+        \item \textbf{Retrieval} --- AP, three-tier labels
+      \end{itemize}}
+    \end{block}
+    \column{0.5\textwidth}
+    \begin{block}{\small Patch Benchmark (Balntas et al.~\cite{balntas2017hpatches})}
+      {\small
+      \begin{itemize}\setlength{\itemsep}{0pt}
+        \item \textbf{Matching} --- mAP, descriptor distance
+        \item \textbf{Verification} --- AP, same + cross-seq.\ neg.
+        \item \textbf{Retrieval} --- mAP, binary labels
+      \end{itemize}}
+    \end{block}
+  \end{columns}
+  \vfill
+  {\small Both report HP-V (viewpoint) and HP-I (illumination) breakdowns across 116 HPatches sequences.}
+  \pdfpcnote{Two separate evaluation protocols. Full-image uses Bojanic et al.: three tasks---matching, verification, retrieval. Tests detector AND descriptor jointly. Patch benchmark uses original HPatches protocol from Balntas et al.: same three tasks but on pre-extracted patches. Key differences: Bojanic uses cross-sequence distractors only and three-tier retrieval labeling; HPatches uses same+cross-sequence negatives and binary labeling. Both break down by viewpoint vs illumination.}
+\end{frame}
+
 \begin{frame}{Key Decision: Two Evaluation Pipelines}
   \begin{columns}[T]
     \column{0.5\textwidth}
@@ -298,33 +353,8 @@
   \pdfpcnote{This was a **critical design decision**. Full-image pipeline: tests detector AND descriptor together---can't separate effects. Patch pipeline: holds keypoint quality constant---isolates descriptor effects. Without two pipelines, we'd confound our variables.}
 \end{frame}
 
-\begin{frame}{DescriptorWorkbench Architecture}
-  \begin{columns}[T]
-    \column{0.55\textwidth}
-    \textbf{C++ framework} with:
-    \begin{itemize}
-      \item 10 descriptor types (SIFT, RGBSIFT, HoNC, DSP-SIFT, HardNet, SOSNet, \ldots)
-      \item YAML-driven experiment configuration
-      \item SQLite database for 100+ experiments
-      \item Three metrics from Bojanic et al.~\cite{bojanic2020comparison}:
-            matching, verification, retrieval
-    \end{itemize}
-    \column{0.45\textwidth}
-    \begin{block}{Tech Stack}
-      \begin{itemize}
-        \item OpenCV 4.13 + LibTorch 2.10
-        \item CUDA 13.1 (RTX 4090)
-        \item Google Test for unit tests
-        \item Python for analysis
-      \end{itemize}
-    \end{block}
-    \vspace{0.5em}
-    {\small Open-source on GitHub}
-  \end{columns}
-  \pdfpcnote{C++ framework, 10 descriptors, YAML-driven. SQLite database tracks all 100+ experiments. Three metrics from Bojanic et al. Open source on GitHub.}
-\end{frame}
-
-\begin{frame}{Key Decision: Building a Color Patch Benchmark}
+% --- Patch benchmark methodology ---
+\begin{frame}{Patch Pipeline: Building a Color Patch Benchmark}
   \begin{itemize}
     \item Original HPatches provides only \textbf{grayscale} 65$\times$65 patches~\cite{balntas2017hpatches}
     \item Color descriptors (HoNC, RGBSIFT) \textbf{cannot be evaluated} on grayscale data
@@ -336,68 +366,6 @@
     Without this, we could not answer RQ2 (color descriptor fusion) at all.
   \end{alertblock}
   \pdfpcnote{Original HPatches only has grayscale patches. We **NEEDED** color for HoNC and RGBSIFT evaluation. Re-extracted from original images using stored keypoints + homographies. Validated: SIFT baseline 22.9\% vs 25.47\% original. Without this, we couldn't answer RQ2 at all.}
-\end{frame}
-
-\begin{frame}{Spatial Intersection Algorithm}
-  \begin{columns}
-    \column{0.6\textwidth}
-    \begin{enumerate}
-      \item Detect keypoints with SIFT detector
-      \item Detect keypoints with KeyNet detector~\cite{barroso2019key}
-      \item Find \textbf{spatial matches} within tolerance ($r$ pixels)
-      \item Keep only agreed-upon locations
-      \item Describe with any descriptor
-    \end{enumerate}
-    \vspace{0.5em}
-    \textbf{Intuition:} If two very different detectors agree
-    a location is interesting, it is likely a \emph{high-quality} feature.
-
-    \column{0.4\textwidth}
-    \centering
-    \begin{tikzpicture}[scale=0.9]
-      \draw[fill=uwpurple!10, rounded corners] (0,0) rectangle (4,4);
-      % SIFT keypoints
-      \foreach \x/\y in {0.5/3.2, 1.2/2.5, 2.0/1.0, 3.0/3.5, 1.8/3.0, 3.5/1.5}
-        \node[circle, fill=blue!60, inner sep=1.5pt] at (\x,\y) {};
-      % KeyNet keypoints
-      \foreach \x/\y in {0.6/3.1, 1.3/2.6, 2.5/2.0, 3.1/3.4, 0.8/0.5}
-        \node[circle, fill=red!60, inner sep=1.5pt] at (\x,\y) {};
-      % Intersection highlights
-      \foreach \x/\y in {0.55/3.15, 1.25/2.55, 3.05/3.45}
-        \draw[thick, green!70!black] (\x,\y) circle (0.25);
-      % Legend
-      \node[circle, fill=blue!60, inner sep=1.5pt, label=right:{\tiny SIFT}] at (0.3,-0.5) {};
-      \node[circle, fill=red!60, inner sep=1.5pt, label=right:{\tiny KeyNet}] at (2.0,-0.5) {};
-      \draw[thick, green!70!black] (3.5,-0.5) circle (0.15) node[right=0.2, font=\tiny] {Match};
-    \end{tikzpicture}
-  \end{columns}
-  \pdfpcnote{Walk through the 5 steps. Point to the diagram: blue=SIFT, red=KeyNet, green circles=matches. Intuition: if two VERY different detectors agree, it's a real feature. This is a quality filter, not just a count reducer.}
-\end{frame}
-
-\begin{frame}{Scale Characteristics of Detectors}
-  \begin{columns}
-    \column{0.5\textwidth}
-    \begin{block}{SIFT Detector~\cite{lowe2004distinctive}}
-      \begin{itemize}
-        \item Avg scale: \textbf{4.45 px}
-        \item Many small-scale keypoints
-        \item $\sim$2.5M total keypoints
-      \end{itemize}
-    \end{block}
-    \column{0.5\textwidth}
-    \begin{block}{KeyNet Detector~\cite{barroso2019key}}
-      \begin{itemize}
-        \item Avg scale: \textbf{49.83 px}
-        \item Larger, more distinctive regions
-        \item $\sim$2.8M total keypoints
-      \end{itemize}
-    \end{block}
-  \end{columns}
-  \vfill
-  \centering
-  \textbf{Key insight:} Larger keypoint scale $\Rightarrow$ more informative patches $\Rightarrow$ better descriptors.\\
-  {\small A 4\,px keypoint samples $\sim$16$\times$16 pixels; a 10\,px keypoint samples $\sim$40$\times$40 pixels.}
-  \pdfpcnote{SIFT: tiny keypoints, average **4.45 pixels**. KeyNet: much larger, average **49.83 pixels**. Key insight: bigger keypoint = bigger patch = more information. 4px samples 16x16, 10px samples 40x40---huge difference.}
 \end{frame}
 
 \begin{frame}{Same-Family Fusion Does Not Help}
@@ -484,6 +452,69 @@
   \pdfpcnote{Solution: L2-normalize each component BEFORE fusion. Show the equation. Without: failed. With: **46.0\% mAP**. This led us to make it a configurable option in the framework. Important engineering lesson: the fix was simple once we found the root cause.}
 \end{frame}
 
+% --- Full-image pipeline methodology ---
+\begin{frame}{Spatial Intersection Algorithm}
+  \begin{columns}
+    \column{0.6\textwidth}
+    \begin{enumerate}
+      \item Detect keypoints with SIFT detector
+      \item Detect keypoints with KeyNet detector~\cite{barroso2019key}
+      \item Find \textbf{spatial matches} within tolerance ($r$ pixels)
+      \item Keep only agreed-upon locations
+      \item Describe with any descriptor
+    \end{enumerate}
+    \vspace{0.5em}
+    \textbf{Intuition:} If two very different detectors agree
+    a location is interesting, it is likely a \emph{high-quality} feature.
+
+    \column{0.4\textwidth}
+    \centering
+    \begin{tikzpicture}[scale=0.9]
+      \draw[fill=uwpurple!10, rounded corners] (0,0) rectangle (4,4);
+      % SIFT keypoints
+      \foreach \x/\y in {0.5/3.2, 1.2/2.5, 2.0/1.0, 3.0/3.5, 1.8/3.0, 3.5/1.5}
+        \node[circle, fill=blue!60, inner sep=1.5pt] at (\x,\y) {};
+      % KeyNet keypoints
+      \foreach \x/\y in {0.6/3.1, 1.3/2.6, 2.5/2.0, 3.1/3.4, 0.8/0.5}
+        \node[circle, fill=red!60, inner sep=1.5pt] at (\x,\y) {};
+      % Intersection highlights
+      \foreach \x/\y in {0.55/3.15, 1.25/2.55, 3.05/3.45}
+        \draw[thick, green!70!black] (\x,\y) circle (0.25);
+      % Legend
+      \node[circle, fill=blue!60, inner sep=1.5pt, label=right:{\tiny SIFT}] at (0.3,-0.5) {};
+      \node[circle, fill=red!60, inner sep=1.5pt, label=right:{\tiny KeyNet}] at (2.0,-0.5) {};
+      \draw[thick, green!70!black] (3.5,-0.5) circle (0.15) node[right=0.2, font=\tiny] {Match};
+    \end{tikzpicture}
+  \end{columns}
+  \pdfpcnote{Walk through the 5 steps. Point to the diagram: blue=SIFT, red=KeyNet, green circles=matches. Intuition: if two VERY different detectors agree, it's a real feature. This is a quality filter, not just a count reducer.}
+\end{frame}
+
+\begin{frame}{Full image pipeline: Scale Characteristics}
+  \begin{columns}
+    \column{0.5\textwidth}
+    \begin{block}{SIFT Detector~\cite{lowe2004distinctive}}
+      \begin{itemize}
+        \item Avg scale: \textbf{4.45 px}
+        \item Many small-scale keypoints
+        \item $\sim$2.5M total keypoints
+      \end{itemize}
+    \end{block}
+    \column{0.5\textwidth}
+    \begin{block}{KeyNet Detector~\cite{barroso2019key}}
+      \begin{itemize}
+        \item Avg scale: \textbf{49.83 px}
+        \item Larger, more distinctive regions
+        \item $\sim$2.8M total keypoints
+      \end{itemize}
+    \end{block}
+  \end{columns}
+  \vfill
+  \centering
+  \textbf{Key insight:} Larger keypoint scale $\Rightarrow$ more informative patches $\Rightarrow$ better descriptors.\\
+  {\small A 4\,px keypoint samples $\sim$16$\times$16 pixels; a 10\,px keypoint samples $\sim$40$\times$40 pixels.}
+  \pdfpcnote{SIFT: tiny keypoints, average **4.45 pixels**. KeyNet: much larger, average **49.83 pixels**. Key insight: bigger keypoint = bigger patch = more information. 4px samples 16x16, 10px samples 40x40---huge difference.}
+\end{frame}
+
 \begin{frame}{Keypoint Quality Matters More Than Descriptor Choice}
   \begin{itemize}
     \item Descriptor research focuses on better \textbf{encoding algorithms}
@@ -506,6 +537,8 @@
   {\small Keypoint quality improvements are comparable to switching descriptor families entirely~\cite{lowe2004distinctive, mishchuk2017working}.}
   \pdfpcnote{Descriptor research focuses on encoding algorithms. But keypoint selection matters just as much. Table shows: switching SIFT to HardNet = +20\%, scale filtering SIFT = +18\%, intersection on HardNet = +18\%. These are comparable gains.}
 \end{frame}
+
+
 
 
 % ###################################################################
@@ -685,7 +718,7 @@
 \begin{frame}{Answering the Research Questions}
   \begin{enumerate}
     \item[\textbf{RQ1}] \textbf{Yes} --- detector intersection improves HardNet by +18\% mAP.
-          Consensus keypoints are more repeatable.
+          Consensus keypoints are more distinct.
     \item[\textbf{RQ2}] \textbf{Yes} --- HoNC + SOSNet (50.6\%) outperforms SOSNet alone (48.9\%).
           Color adds complementary discrimination.
     \item[\textbf{RQ3}] \textbf{Complementarity determines success.}

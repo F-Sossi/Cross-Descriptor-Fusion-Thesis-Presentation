@@ -140,7 +140,7 @@
   \centering
   \begin{beamercolorbox}[sep=1em, rounded=true, shadow=true, center]{block body}
     \large
-    Systematic fusion of keypoint detectors and descriptors significantly improves local feature matching.
+    Selecting high-quality keypoints through detector consensus and fusing complementary descriptors yields large improvements in local feature matching.
   \end{beamercolorbox}
   \vfill
   \pdfpcnote{Read the MIOS slowly---this is the entire thesis in one sentence. Pause after reading it. This sets up everything that follows.}
@@ -306,6 +306,26 @@
   \pdfpcnote{C++ framework, 10 descriptors, YAML-driven. SQLite database tracks all 100+ experiments. Open source on GitHub.}
 \end{frame}
 
+\begin{frame}{Key Decision: Two Evaluation Pipelines}
+  \begin{columns}[T]
+    \column{0.5\textwidth}
+    \begin{block}{Full-Image Pipeline}
+      Detection $\to$ Description $\to$ Matching\\[0.5em]
+      {\small Tests detector \textbf{and} descriptor jointly.\\
+      Used for scale control and intersection experiments.}
+    \end{block}
+    \column{0.5\textwidth}
+    \begin{block}{Patch Benchmark Pipeline}
+      Pre-extracted patches $\to$ Description\\[0.5em]
+      {\small Holds keypoint quality \textbf{constant}.\\
+      Isolates descriptor fusion effects.}
+    \end{block}
+  \end{columns}
+  \vfill
+  \textbf{Why two pipelines?} Fusion experiments on full images confound keypoint quality with descriptor quality. The patch pipeline lets us study fusion in isolation~\cite{balntas2017hpatches}.
+  \pdfpcnote{This was a **critical design decision**. Full-image pipeline: tests detector AND descriptor together---can't separate effects. Patch pipeline: holds keypoint quality constant---isolates descriptor effects. Without two pipelines, we'd confound our variables.}
+\end{frame}
+
 \begin{frame}{Two Evaluation Protocols}
   \vspace{-0.5em}
   \begin{columns}[T]
@@ -331,26 +351,6 @@
   \vfill
   {\small Both report HP-V (viewpoint) and HP-I (illumination) breakdowns across 116 HPatches sequences.}
   \pdfpcnote{Two separate evaluation protocols. Full-image uses Bojanic et al.: three tasks---matching, verification, retrieval. Tests detector AND descriptor jointly. Patch benchmark uses original HPatches protocol from Balntas et al.: same three tasks but on pre-extracted patches. Key differences: Bojanic uses cross-sequence distractors only and three-tier retrieval labeling; HPatches uses same+cross-sequence negatives and binary labeling. Both break down by viewpoint vs illumination.}
-\end{frame}
-
-\begin{frame}{Key Decision: Two Evaluation Pipelines}
-  \begin{columns}[T]
-    \column{0.5\textwidth}
-    \begin{block}{Full-Image Pipeline}
-      Detection $\to$ Description $\to$ Matching\\[0.5em]
-      {\small Tests detector \textbf{and} descriptor jointly.\\
-      Used for scale control and intersection experiments.}
-    \end{block}
-    \column{0.5\textwidth}
-    \begin{block}{Patch Benchmark Pipeline}
-      Pre-extracted patches $\to$ Description\\[0.5em]
-      {\small Holds keypoint quality \textbf{constant}.\\
-      Isolates descriptor fusion effects.}
-    \end{block}
-  \end{columns}
-  \vfill
-  \textbf{Why two pipelines?} Fusion experiments on full images confound keypoint quality with descriptor quality. The patch pipeline lets us study fusion in isolation~\cite{balntas2017hpatches}.
-  \pdfpcnote{This was a **critical design decision**. Full-image pipeline: tests detector AND descriptor together---can't separate effects. Patch pipeline: holds keypoint quality constant---isolates descriptor effects. Without two pipelines, we'd confound our variables.}
 \end{frame}
 
 % --- Patch benchmark methodology ---
@@ -515,7 +515,7 @@
   \pdfpcnote{SIFT: tiny keypoints, average **4.45 pixels**. KeyNet: much larger, average **49.83 pixels**. Key insight: bigger keypoint = bigger patch = more information. 4px samples 16x16, 10px samples 40x40---huge difference.}
 \end{frame}
 
-\begin{frame}{Keypoint Quality Matters More Than Descriptor Choice}
+\begin{frame}{Keypoint Quality Matters As much as Descriptor Choice}
   \begin{itemize}
     \item Descriptor research focuses on better \textbf{encoding algorithms}
     \item Yet \textbf{keypoint selection} has an equal or greater effect on performance
@@ -772,8 +772,7 @@
     \column{0.5\textwidth}
     \textbf{Short-term:}
     \begin{itemize}
-      \item Learned fusion weights (attention-based, per-dimension)
-      \item Tolerance sensitivity analysis for intersection radius
+      \item Systematic study of fusion weighting strategies and their effect on matching performance
       \item Additional descriptors (DISK, ALIKE, SuperPoint)
     \end{itemize}
     \column{0.5\textwidth}
@@ -784,7 +783,7 @@
       \item Real-time deployment (mobile SLAM)
     \end{itemize}
   \end{columns}
-  \pdfpcnote{Short-term: learned weights, tolerance sensitivity, more descriptors. Long-term: end-to-end learning, other datasets, real-time deployment. Plenty of directions to extend this work.}
+  \pdfpcnote{Short-term: systematic study of how different fusion weightings affect results---we used equal weighting throughout, varying this could improve performance. Also more descriptors like DISK, ALIKE, SuperPoint. Long-term: end-to-end learning, other datasets, real-time deployment. Plenty of directions to extend this work.}
 \end{frame}
 
 \begin{frame}{Limitations}
